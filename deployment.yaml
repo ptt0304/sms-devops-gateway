@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-devops-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sms-devops-gateway
+  template:
+    metadata:
+      labels:
+        app: sms-devops-gateway
+    spec:
+      containers:
+      - name: sms-devops-gateway
+        image: dc1-repo-pub.vps.com.vn/sms-devops-gateway:latest
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: config-volume
+          mountPath: /config.json   # <- đường dẫn thật trong container
+          subPath: config.json                 # <- key đúng trong configmap
+      volumes:
+      - name: config-volume
+        configMap:
+          name: sms-config

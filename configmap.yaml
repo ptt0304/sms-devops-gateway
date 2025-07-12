@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+data:
+  config.json: |
+    {
+      "receivers": [
+          {
+              "name": "alert-ops",
+              "mobile": "sdt-ops-1, sdt-ops-2"
+          },
+          {
+              "name": "alert-devops",
+              "mobile": "sdt-devops-1, sdt-devops-2"
+          },
+          {
+              "name": "alert-infra",
+              "mobile": "sdt-infra-1, sdt-infra-2"
+          }
+      ],
+
+      "default_receiver": {
+          "mobile": "sdt-default"
+      }
+    }
