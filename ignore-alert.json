@@ -1,0 +1,26 @@
+{
+  "ignore": [
+    {
+      "cluster": "d1_coreup",
+      "namespaces": [
+        {
+          "name": "infra-monitoring",
+          "pods": ["abc", "def"]
+        },
+        {
+          "name": "dev-tools",
+          "pods": []
+        }
+      ]
+    },
+    {
+      "cluster": "d2_test",
+      "namespaces": [
+        {
+          "name": "test-namespace",
+          "pods": ["ghi"]
+        }
+      ]
+    }
+  ]
+}

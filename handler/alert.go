@@ -12,8 +12,8 @@ import (
 	"sms-devops-gateway/forwarder"
 )
 
+// AlertData đại diện cho JSON từ Alertmanager
 type AlertData struct {
-	Status   string  `json:"status"`
 	Receiver string  `json:"receiver"`
 	Alerts   []Alert `json:"alerts"`
 }
@@ -24,7 +24,31 @@ type Alert struct {
 	Annotations map[string]string `json:"annotations"`
 }
 
-func HandleAlert(cfg *config.Config, logFile *os.File) http.HandlerFunc {
+// ✅ Hàm kiểm tra alert có bị ignore hay không
+func shouldIgnore(cluster, namespace, pod string, ignoreCfg *config.IgnoreConfig) bool {
+	for _, c := range ignoreCfg.Ignore {
+		if c.Cluster == cluster {
+			for _, ns := range c.Namespaces {
+				if ns.Name == namespace {
+					// Nếu pods rỗng => ignore tất cả pod trong namespace
+					if len(ns.Pods) == 0 {
+						return true
+					}
+					// Nếu có danh sách pods => kiểm tra pod cụ thể
+					for _, p := range ns.Pods {
+						if p == pod {
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// ✅ Hàm xử lý alert
+func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os.File) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -33,7 +57,7 @@ func HandleAlert(cfg *config.Config, logFile *os.File) http.HandlerFunc {
 		}
 		defer r.Body.Close()
 
-		// ✅ Ghi toàn bộ alert vào file log
+		// Ghi toàn bộ alert vào file log
 		logEntry := fmt.Sprintf("[%s] Received alert:\n%s\n\n", time.Now().Format(time.RFC3339), string(body))
 		if _, err := logFile.WriteString(logEntry); err != nil {
 			fmt.Fprintf(os.Stderr, "⚠️ Failed to write to alert log: %v\n", err)
@@ -55,31 +79,10 @@ func HandleAlert(cfg *config.Config, logFile *os.File) http.HandlerFunc {
 
 		status := alert.Status
 		severity := alert.Labels["severity"]
-
-		if !((status == "resolved") || (status == "firing" && severity == "critical")) {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("Alert ignored"))
-			return
-		}
-
 		cluster := alert.Labels["cluster"]
 		namespace := alert.Labels["namespace"]
 		pod := alert.Labels["pod"]
 		summary := alert.Annotations["summary"]
-
-		// Bỏ qua nếu pod thuộc danh sách ignore
-		ignorePods := map[string]bool{
-			"abc": true,
-			"def": true,
-			"ghi": true,
-			"mnp": true,
-		}
-
-		if _, found := ignorePods[pod]; found {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(fmt.Sprintf("Alert ignored because pod '%s' is in ignore list", pod)))
-			return
-		}
 
 		if status == "" {
 			status = "unknown-status"
@@ -97,10 +100,24 @@ func HandleAlert(cfg *config.Config, logFile *os.File) http.HandlerFunc {
 			summary = alert.Labels["alertname"]
 		}
 
-		message := fmt.Sprintf("[%s] %s/%s | %s | %s", status, cluster, namespace, pod, summary)
+		// ✅ Kiểm tra ignore dựa trên cluster/namespace/pod
+		if shouldIgnore(cluster, namespace, pod, ignoreCfg) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(fmt.Sprintf("Alert ignored by rules for %s/%s/%s ✅", cluster, namespace, pod)))
+			return
+		}
 
+		// Kiểm tra điều kiện gửi alert như cũ
+		if !((status == "resolved") || (status == "firing" && severity == "critical")) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Alert ignored by default rules"))
+			return
+		}
+
+		message := fmt.Sprintf("[%s] %s/%s | %s | %s", status, cluster, namespace, pod, summary)
 		targetReceiver := alertData.Receiver
 
+		// Forward alert đến đúng receiver
 		sent := false
 		for _, receiver := range cfg.Receivers {
 			if receiver.Name == targetReceiver {
@@ -114,6 +131,6 @@ func HandleAlert(cfg *config.Config, logFile *os.File) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Alert processed✅"))
+		w.Write([]byte("Alert processed ✅"))
 	}
 }
