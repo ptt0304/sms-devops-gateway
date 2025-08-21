@@ -1,12 +1,12 @@
 {
-    "receivers": [
+    "receiver": [
         {
             "name": "alert-ops",
             "mobile": "sdt-ops-1, sdt-ops-2"
         },
         {
             "name": "alert-devops",
-            "mobile": "sdt-devops-1, sdt-devops-2"
+            "mobile": "sdt-devops-1, sdt-devops-2, sdt-devops-3"
         },
         {
             "name": "alert-infra",

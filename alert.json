@@ -1,40 +1,40 @@
-{
-  "annotations": {
-    "argocd.argoproj.io/sync-options": "ServerSideApply=true",
-    "description": "Pod infra-vsphere-csi/vsphere-csi-controller-749b655ff8-kjgjc (vsphere-csi-controller) is in waiting state (reason: \"CrashLoopBackOff\").",
-    "runbook_url": "https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodcrashlooping",
-    "summary": "Pod is crash looping."
-  },
-  "endsAt": "2025-06-25T09:43:24.042+07:00",
-  "fingerprint": "054ce15e95e04a6f",
-  "receivers": [
-    {
-      "name": "alert-devops"
+  {
+    "annotations": {
+      "argocd.argoproj.io/sync-options": "ServerSideApply=true",
+      "description": "Pod infra-vsphere-csi/vsphere-csi-controller-749b655ff8-kjgjc (vsphere-csi-controller) is in waiting state (reason: \"CrashLoopBackOff\").",
+      "runbook_url": "https://runbooks.prometheus-operator.dev/runbooks/kubernetes/kubepodcrashlooping",
+      "summary": "Pod is crash looping."
+    },
+    "endsAt": "2025-06-25T09:43:24.042+07:00",
+    "fingerprint": "054ce15e95e04a6f",
+    "receivers": [
+      {
+        "name": "alert-devops"
+      }
+    ],
+    "startsAt": "2025-06-10T16:32:30.000+07:00",
+    "status": {
+      "inhibitedBy": [],
+      "silencedBy": [],
+      "state": "active"
+    },
+    "updatedAt": "2025-06-25T09:42:24.044+07:00",
+    "generatorURL": "http://vmalert-vmks-acp1-victoria-metrics-k8s-stack-7f56c8c5f4-nhh96:8080/vmalert/alert/159789109153925088&alert_id=6597988171495280980",
+    "labels": {
+      "alertgroup": "kubernetes-apps",
+      "alertname": "KubePodCrashLooping",
+      "alertstate": "firing",
+      "app_kubernetes_io_type": "tool",
+      "cluster": "d1-corep",
+      "container": "vsphere-csi-controller",
+      "d1_corepub": "infra-monitoring/vmks-acp1-victoria-metrics-k8s-stack",
+      "endpoint": "http",
+      "instance": "10.86.11.106:8080",
+      "job": "vsphere-csi-controller",
+      "namespace": "infra-vsphere-csi",
+      "pod": "vsphere-csi-controller-749b655ff8-kjgjc",
+      "reason": "CrashLoopBackOff",
+      "service": "vmks-acp1-kube-state-metrics",
+      "severity": "critical"
     }
-  ],
-  "startsAt": "2025-06-10T16:32:30.000+07:00",
-  "status": {
-    "inhibitedBy": [],
-    "silencedBy": [],
-    "state": "active"
-  },
-  "updatedAt": "2025-06-25T09:42:24.044+07:00",
-  "generatorURL": "http://vmalert-vmks-acp1-victoria-metrics-k8s-stack-7f56c8c5f4-nhh96:8080/vmalert/alert/159789109153925088&alert_id=6597988171495280980",
-  "labels": {
-    "alertgroup": "kubernetes-apps",
-    "alertname": "KubePodCrashLooping",
-    "alertstate": "firing",
-    "app_kubernetes_io_type": "tool",
-    "cluster": "d1-corep",
-    "container": "vsphere-csi-controller",
-    "d1_corepub": "infra-monitoring/vmks-acp1-victoria-metrics-k8s-stack",
-    "endpoint": "http",
-    "instance": "10.86.11.106:8080",
-    "job": "vsphere-csi-controller",
-    "namespace": "infra-vsphere-csi",
-    "pod": "vsphere-csi-controller-749b655ff8-kjgjc",
-    "reason": "CrashLoopBackOff",
-    "service": "vmks-acp1-kube-state-metrics",
-    "severity": "none"
   }
-}

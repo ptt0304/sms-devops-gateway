@@ -3,8 +3,6 @@ package config
 import (
 	"os"
 	"strings"
-
-	// "gopkg.in/json.v3"
 	"encoding/json"
 )
 
@@ -21,7 +19,7 @@ type DefaultReceiver struct {
 }
 
 type Config struct {
-	Receivers       []Receiver     `json:"receivers"`
+	Receivers       []Receiver     `json:"receiver"`
 	DefaultReceiver DefaultReceiver `json:"default_receiver"`
 }
 

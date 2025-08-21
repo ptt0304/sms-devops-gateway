@@ -9,7 +9,7 @@ import (
 )
 
 // const smsURL = "http://10.32.46.15:8082/sms/sendNumber"
-const smsURL = "https://webhook.site/0b856cf7-6908-455c-bdae-15aac2f4b768"
+const smsURL = "https://webhook.site/66546da8-507f-49a4-a4d0-ac597a9ab845"
 
 type SMSPayload struct {
 	Mobile  string `json:"mobile"`

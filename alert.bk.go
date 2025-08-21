@@ -12,16 +12,12 @@ import (
 	"sms-devops-gateway/forwarder"
 )
 
-type AlertData struct {
-	Status   string  `json:"status"`
-	Receiver string  `json:"receiver"`
-	Alerts   []Alert `json:"alerts"`
-}
-
 type Alert struct {
-	Status      string            `json:"status"`
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
+	Receivers   []struct {
+		Name string `json:"name"`
+	} `json:"receiver"`
 }
 
 func HandleAlert(cfg *config.Config, logFile *os.File) http.HandlerFunc {
@@ -40,23 +36,16 @@ func HandleAlert(cfg *config.Config, logFile *os.File) http.HandlerFunc {
 		}
 
 		// Parse alert JSON
-		var alertData AlertData
-		if err := json.Unmarshal(body, &alertData); err != nil {
+		var alert Alert
+		if err := json.Unmarshal(body, &alert); err != nil {
 			http.Error(w, "invalid JSON object", http.StatusBadRequest)
 			return
 		}
 
-		if len(alertData.Alerts) == 0 {
-			http.Error(w, "no alerts found", http.StatusBadRequest)
-			return
-		}
-
-		alert := alertData.Alerts[0] // chỉ xử lý alert đầu tiên
-
-		status := alert.Status
+		alertstate := alert.Labels["alertstate"]
 		severity := alert.Labels["severity"]
 
-		if !((status == "resolved") || (status == "firing" && severity == "critical")) {
+		if !((alertstate == "resolved") || (alertstate == "firing" && severity == "none")) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Alert ignored"))
 			return
@@ -64,25 +53,11 @@ func HandleAlert(cfg *config.Config, logFile *os.File) http.HandlerFunc {
 
 		cluster := alert.Labels["cluster"]
 		namespace := alert.Labels["namespace"]
-		pod := alert.Labels["pod"]
+		job := alert.Labels["job"]
 		summary := alert.Annotations["summary"]
 
-		// Bỏ qua nếu pod thuộc danh sách ignore
-		ignorePods := map[string]bool{
-			"abc": true,
-			"def": true,
-			"ghi": true,
-			"mnp": true,
-		}
-
-		if _, found := ignorePods[pod]; found {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(fmt.Sprintf("Alert ignored because pod '%s' is in ignore list", pod)))
-			return
-		}
-
-		if status == "" {
-			status = "unknown-status"
+		if alertstate == "" {
+			alertstate = "unknown-alertstate"
 		}
 		if cluster == "" {
 			cluster = "unknown-cluster"
@@ -90,16 +65,19 @@ func HandleAlert(cfg *config.Config, logFile *os.File) http.HandlerFunc {
 		if namespace == "" {
 			namespace = "unknown-namespace"
 		}
-		if pod == "" {
-			pod = "unknown-pod"
+		if job == "" {
+			job = "unknown-job"
 		}
 		if summary == "" {
 			summary = alert.Labels["alertname"]
 		}
 
-		message := fmt.Sprintf("[%s] %s/%s | %s | %s", status, cluster, namespace, pod, summary)
+		message := fmt.Sprintf("[%s] %s/%s | %s | %s", alertstate, cluster, namespace, job, summary)
 
-		targetReceiver := alertData.Receiver
+		targetReceiver := ""
+		if len(alert.Receivers) > 0 {
+			targetReceiver = alert.Receivers[0].Name
+		}
 
 		sent := false
 		for _, receiver := range cfg.Receivers {

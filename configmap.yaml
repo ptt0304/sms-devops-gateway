@@ -5,7 +5,7 @@ metadata:
 data:
   config.json: |
     {
-      "receivers": [
+      "receiver": [
           {
               "name": "alert-ops",
               "mobile": "sdt-ops-1, sdt-ops-2"

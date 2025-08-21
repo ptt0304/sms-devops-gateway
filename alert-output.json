@@ -1,0 +1,38 @@
+{
+  "receiver": "alert-devops",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertgroup": "vmagent",
+        "alertname": "PersistentQueueIsDroppingData",
+        "app_kubernetes_io_type": "tool",
+        "cluster": "d1_coreup",
+        "container": "vmagent",
+        "job": "vmagent-victoriametrics-victoria-metrics-k8s-stack",
+        "namespace": "infra-monitoring",
+        "pod": "abc",
+        "service": "vmagent-victoriametrics-victoria-metrics-k8s-stack",
+        "severity": "critical"
+      },
+      "annotations": {
+        "dashboard.grafana.domain.co/io/sync-options": "ServerSideApply=true",
+        "dashboard": "http://grafana.domain.co/d/G7Z9GzM2k?viewPanel=49&var-instance=10.90.1.142:8429",
+        "description": "Vmagent dropped 551Mi from persistent queue on instance 10.90.1.142:8429 for the last 10m.",
+        "summary": "Instance 10.90.1.142:8429 is dropping data from persistent queue"
+      },
+      "startsAt": "2025-07-07T09:13:30+07:00",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://alertmanager-vmks-acpui-victoria-metrics-k8s-stack-5666f59944-xsm57:8080/#/alert?alertId=14539619035117554733",
+      "fingerprint": "012feca9fc83bb6"
+    }
+  ],
+  "groupLabels": {
+    "alertname": "PersistentQueueIsDroppingData",
+    "cluster": "d1_coreup",
+    "job": "vmagent-victoriametrics-victoria-metrics-k8s-stack",
+    "namespace": "infra-monitoring",
+    "severity": "critical"
+  }
+}

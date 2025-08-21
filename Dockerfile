@@ -18,6 +18,8 @@ RUN go mod tidy && go build -o sms-devops-gateway ./cmd/main.go
 # 🌐 Tạo image nhỏ gọn chỉ có binary
 FROM alpine:latest
 
+RUN mkdir -p ./log
+RUN touch ./log/alerts.log
 RUN apk --no-cache add ca-certificates
 
 # Copy binary từ builder
