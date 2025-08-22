@@ -12,7 +12,7 @@
         "container": "vmagent",
         "job": "vmagent-victoriametrics-victoria-metrics-k8s-stack",
         "namespace": "test-namespace",
-        "pod": "mnp",
+        "pod": "test-1",
         "service": "vmagent-victoriametrics-victoria-metrics-k8s-stack",
         "severity": "critical"
       },

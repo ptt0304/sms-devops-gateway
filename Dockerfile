@@ -18,15 +18,17 @@ RUN go mod tidy && go build -o sms-devops-gateway ./cmd/main.go
 # 🌐 Tạo image nhỏ gọn chỉ có binary
 FROM alpine:latest
 
-RUN mkdir -p ./log
-RUN touch ./log/alerts.log
-RUN apk --no-cache add ca-certificates
+# Tạo thư mục log và file log
+RUN mkdir -p /log && touch /log/alerts.log
+
+# Cài tzdata để hỗ trợ timezone và chứng chỉ SSL
+RUN apk --no-cache add ca-certificates tzdata
+
+# Set timezone UTC+7 (Asia/Ho_Chi_Minh)
+ENV TZ=Asia/Ho_Chi_Minh
 
 # Copy binary từ builder
 COPY --from=builder /app/sms-devops-gateway /usr/bin/sms-devops-gateway
-
-# # Copy file config
-# COPY config.json /config.json
 
 # Expose cổng mặc định
 EXPOSE 8080

@@ -3,20 +3,33 @@ package config
 import (
 	"encoding/json"
 	"os"
+	"time"
 )
 
-type IgnoreConfig struct {
-	Ignore []ClusterRule `json:"ignore"`
+type TimeRange struct {
+	Start *time.Time `json:"start"`
+	End   *time.Time `json:"end"`
+}
+
+type PodRule struct {
+	Name string    `json:"name"`
+	Time TimeRange `json:"time"`
+}
+
+type NamespaceRule struct {
+	Name string    `json:"name"`
+	Time TimeRange `json:"time"`
+	Pods []PodRule `json:"pods"`
 }
 
 type ClusterRule struct {
 	Cluster    string          `json:"cluster"`
+	Time       TimeRange       `json:"time"`
 	Namespaces []NamespaceRule `json:"namespaces"`
 }
 
-type NamespaceRule struct {
-	Name string   `json:"name"`
-	Pods []string `json:"pods"`
+type IgnoreConfig struct {
+	Ignore []ClusterRule `json:"ignore"`
 }
 
 // LoadIgnoreConfig đọc file ignore-alert.json

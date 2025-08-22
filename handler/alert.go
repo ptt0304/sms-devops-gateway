@@ -24,30 +24,53 @@ type Alert struct {
 	Annotations map[string]string `json:"annotations"`
 }
 
-// ✅ Hàm kiểm tra alert có bị ignore hay không và trả về lý do
-func shouldIgnore(cluster, namespace, pod string, ignoreCfg *config.IgnoreConfig) (bool, string) {
-	// ✅ Ưu tiên kiểm tra wildcard cluster trước
-	for _, c := range ignoreCfg.Ignore {
-		if c.Cluster == "*" {
-			return true, "ignore all alerts due to wildcard cluster"
-		}
-	}
+// nowLocal trả về thời gian hiện tại theo timezone của container (image OS)
+func nowLocal() time.Time {
+	return time.Now().Local() // dựa vào /etc/localtime trong container
+}
 
-	// ✅ Sau đó kiểm tra các rule cụ thể
+// isWithinTimeRange kiểm tra thời gian hiện tại có nằm trong khoảng TimeRange không
+func isWithinTimeRange(tr config.TimeRange) bool {
+	now := nowLocal()
+
+	if tr.Start != nil && now.Before(*tr.Start) {
+		return false
+	}
+	if tr.End != nil && now.After(*tr.End) {
+		return false
+	}
+	return true
+}
+
+// shouldIgnore kiểm tra alert có bị ignore hay không và trả về lý do
+func shouldIgnore(cluster, namespace, pod string, ignoreCfg *config.IgnoreConfig) (bool, string) {
 	for _, c := range ignoreCfg.Ignore {
-		if c.Cluster == cluster {
-			for _, ns := range c.Namespaces {
-				if ns.Name == "*" {
-					return true, fmt.Sprintf("ignore all alerts in cluster %s due to wildcard namespace", cluster)
-				}
-				if ns.Name == namespace {
-					for _, p := range ns.Pods {
-						if p == "*" {
-							return true, fmt.Sprintf("ignore all alerts in namespace %s (cluster %s) due to wildcard pod", namespace, cluster)
-						}
-						if p == pod {
-							return true, fmt.Sprintf("ignore alert for specific pod %s in namespace %s (cluster %s)", pod, namespace, cluster)
-						}
+		// Check cluster name
+		if c.Cluster != "*" && c.Cluster != cluster {
+			continue
+		}
+
+		// Nếu cluster còn trong time và namespaces rỗng → ignore toàn cluster
+		if isWithinTimeRange(c.Time) && len(c.Namespaces) == 0 {
+			return true, fmt.Sprintf("ignore all alerts in cluster %s (active time range)", cluster)
+		}
+
+		// Check namespace
+		for _, ns := range c.Namespaces {
+			if ns.Name != "*" && ns.Name != namespace {
+				continue
+			}
+
+			// Nếu namespace còn trong time và pods rỗng → ignore toàn namespace
+			if isWithinTimeRange(ns.Time) && len(ns.Pods) == 0 {
+				return true, fmt.Sprintf("ignore all alerts in namespace %s (cluster %s)", namespace, cluster)
+			}
+
+			// Check pod
+			for _, p := range ns.Pods {
+				if p.Name == "*" || p.Name == pod {
+					if isWithinTimeRange(p.Time) {
+						return true, fmt.Sprintf("ignore alert for pod %s/%s/%s (active time range)", cluster, namespace, pod)
 					}
 				}
 			}
@@ -56,10 +79,9 @@ func shouldIgnore(cluster, namespace, pod string, ignoreCfg *config.IgnoreConfig
 	return false, ""
 }
 
-// ✅ Hàm xử lý alert
+// HandleAlert xử lý alert từ Alertmanager
 func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os.File) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Đọc body từ request
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "cannot read request body", http.StatusBadRequest)
@@ -67,13 +89,12 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 		}
 		defer r.Body.Close()
 
-		// Ghi toàn bộ alert vào file log
-		logEntry := fmt.Sprintf("[%s] Received alert:\n%s\n\n", time.Now().Format(time.RFC3339), string(body))
+		// Ghi log theo thời gian local của container
+		logEntry := fmt.Sprintf("[%s] Received alert:\n%s\n\n", nowLocal().Format(time.RFC3339), string(body))
 		if _, err := logFile.WriteString(logEntry); err != nil {
 			fmt.Fprintf(os.Stderr, "⚠️ Failed to write to alert log: %v\n", err)
 		}
 
-		// Parse JSON alert
 		var alertData AlertData
 		if err := json.Unmarshal(body, &alertData); err != nil {
 			http.Error(w, "invalid JSON object", http.StatusBadRequest)
@@ -85,10 +106,7 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 			return
 		}
 
-		// ✅ Chỉ xử lý alert đầu tiên
 		alert := alertData.Alerts[0]
-
-		// ✅ Lấy thông tin từ alert, gán giá trị mặc định nếu thiếu
 		status := defaultIfEmpty(alert.Status, "unknown-status")
 		cluster := defaultIfEmpty(alert.Labels["cluster"], "unknown-cluster")
 		namespace := defaultIfEmpty(alert.Labels["namespace"], "unknown-namespace")
@@ -99,7 +117,6 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 			summary = alert.Labels["alertname"]
 		}
 
-		// ✅ Kiểm tra ignore dựa trên cluster/namespace/pod với wildcard
 		if ignored, reason := shouldIgnore(cluster, namespace, pod, ignoreCfg); ignored {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(fmt.Sprintf("Alert ignored: %s ✅", reason)))
@@ -107,18 +124,15 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 			return
 		}
 
-		// ✅ Kiểm tra điều kiện gửi alert như cũ (chỉ gửi khi resolved hoặc firing+critical)
 		if !(status == "resolved" || (status == "firing" && severity == "critical")) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Alert ignored by default rules"))
 			return
 		}
 
-		// ✅ Tạo nội dung message
 		message := fmt.Sprintf("[%s] %s/%s | %s | %s", status, cluster, namespace, pod, summary)
 		targetReceiver := alertData.Receiver
 
-		// ✅ Forward alert đến đúng receiver
 		sent := false
 		for _, receiver := range cfg.Receivers {
 			if receiver.Name == targetReceiver {
@@ -128,7 +142,6 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 			}
 		}
 
-		// ✅ Nếu không tìm thấy receiver → gửi đến default
 		if !sent {
 			forwarder.SendToMultipleMobiles(cfg.DefaultReceiver.Mobiles, message)
 		}
@@ -138,7 +151,6 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 	}
 }
 
-// ✅ Hàm helper để gán giá trị mặc định nếu rỗng
 func defaultIfEmpty(value, defaultValue string) string {
 	if value == "" {
 		return defaultValue
