@@ -24,32 +24,42 @@ type Alert struct {
 	Annotations map[string]string `json:"annotations"`
 }
 
-// ✅ Hàm kiểm tra alert có bị ignore hay không
-func shouldIgnore(cluster, namespace, pod string, ignoreCfg *config.IgnoreConfig) bool {
+// ✅ Hàm kiểm tra alert có bị ignore hay không và trả về lý do
+func shouldIgnore(cluster, namespace, pod string, ignoreCfg *config.IgnoreConfig) (bool, string) {
+	// ✅ Ưu tiên kiểm tra wildcard cluster trước
+	for _, c := range ignoreCfg.Ignore {
+		if c.Cluster == "*" {
+			return true, "ignore all alerts due to wildcard cluster"
+		}
+	}
+
+	// ✅ Sau đó kiểm tra các rule cụ thể
 	for _, c := range ignoreCfg.Ignore {
 		if c.Cluster == cluster {
 			for _, ns := range c.Namespaces {
+				if ns.Name == "*" {
+					return true, fmt.Sprintf("ignore all alerts in cluster %s due to wildcard namespace", cluster)
+				}
 				if ns.Name == namespace {
-					// Nếu pods rỗng => ignore tất cả pod trong namespace
-					if len(ns.Pods) == 0 {
-						return true
-					}
-					// Nếu có danh sách pods => kiểm tra pod cụ thể
 					for _, p := range ns.Pods {
+						if p == "*" {
+							return true, fmt.Sprintf("ignore all alerts in namespace %s (cluster %s) due to wildcard pod", namespace, cluster)
+						}
 						if p == pod {
-							return true
+							return true, fmt.Sprintf("ignore alert for specific pod %s in namespace %s (cluster %s)", pod, namespace, cluster)
 						}
 					}
 				}
 			}
 		}
 	}
-	return false
+	return false, ""
 }
 
 // ✅ Hàm xử lý alert
 func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os.File) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Đọc body từ request
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "cannot read request body", http.StatusBadRequest)
@@ -63,7 +73,7 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 			fmt.Fprintf(os.Stderr, "⚠️ Failed to write to alert log: %v\n", err)
 		}
 
-		// Parse alert JSON
+		// Parse JSON alert
 		var alertData AlertData
 		if err := json.Unmarshal(body, &alertData); err != nil {
 			http.Error(w, "invalid JSON object", http.StatusBadRequest)
@@ -75,49 +85,40 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 			return
 		}
 
-		alert := alertData.Alerts[0] // chỉ xử lý alert đầu tiên
+		// ✅ Chỉ xử lý alert đầu tiên
+		alert := alertData.Alerts[0]
 
-		status := alert.Status
+		// ✅ Lấy thông tin từ alert, gán giá trị mặc định nếu thiếu
+		status := defaultIfEmpty(alert.Status, "unknown-status")
+		cluster := defaultIfEmpty(alert.Labels["cluster"], "unknown-cluster")
+		namespace := defaultIfEmpty(alert.Labels["namespace"], "unknown-namespace")
+		pod := defaultIfEmpty(alert.Labels["pod"], "unknown-pod")
 		severity := alert.Labels["severity"]
-		cluster := alert.Labels["cluster"]
-		namespace := alert.Labels["namespace"]
-		pod := alert.Labels["pod"]
 		summary := alert.Annotations["summary"]
-
-		if status == "" {
-			status = "unknown-status"
-		}
-		if cluster == "" {
-			cluster = "unknown-cluster"
-		}
-		if namespace == "" {
-			namespace = "unknown-namespace"
-		}
-		if pod == "" {
-			pod = "unknown-pod"
-		}
 		if summary == "" {
 			summary = alert.Labels["alertname"]
 		}
 
-		// ✅ Kiểm tra ignore dựa trên cluster/namespace/pod
-		if shouldIgnore(cluster, namespace, pod, ignoreCfg) {
+		// ✅ Kiểm tra ignore dựa trên cluster/namespace/pod với wildcard
+		if ignored, reason := shouldIgnore(cluster, namespace, pod, ignoreCfg); ignored {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(fmt.Sprintf("Alert ignored by rules for %s/%s/%s ✅", cluster, namespace, pod)))
+			w.Write([]byte(fmt.Sprintf("Alert ignored: %s ✅", reason)))
+			fmt.Fprintf(os.Stdout, "ℹ️ %s (%s/%s/%s)\n", reason, cluster, namespace, pod)
 			return
 		}
 
-		// Kiểm tra điều kiện gửi alert như cũ
-		if !((status == "resolved") || (status == "firing" && severity == "critical")) {
+		// ✅ Kiểm tra điều kiện gửi alert như cũ (chỉ gửi khi resolved hoặc firing+critical)
+		if !(status == "resolved" || (status == "firing" && severity == "critical")) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Alert ignored by default rules"))
 			return
 		}
 
+		// ✅ Tạo nội dung message
 		message := fmt.Sprintf("[%s] %s/%s | %s | %s", status, cluster, namespace, pod, summary)
 		targetReceiver := alertData.Receiver
 
-		// Forward alert đến đúng receiver
+		// ✅ Forward alert đến đúng receiver
 		sent := false
 		for _, receiver := range cfg.Receivers {
 			if receiver.Name == targetReceiver {
@@ -126,6 +127,8 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 				break
 			}
 		}
+
+		// ✅ Nếu không tìm thấy receiver → gửi đến default
 		if !sent {
 			forwarder.SendToMultipleMobiles(cfg.DefaultReceiver.Mobiles, message)
 		}
@@ -133,4 +136,12 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Alert processed ✅"))
 	}
+}
+
+// ✅ Hàm helper để gán giá trị mặc định nếu rỗng
+func defaultIfEmpty(value, defaultValue string) string {
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }

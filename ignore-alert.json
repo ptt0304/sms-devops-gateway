@@ -4,12 +4,8 @@
       "cluster": "d1_coreup",
       "namespaces": [
         {
-          "name": "infra-monitoring",
-          "pods": ["abc", "def"]
-        },
-        {
-          "name": "dev-tools",
-          "pods": []
+          "name": "*",
+          "pods": ["ghi"]
         }
       ]
     },
@@ -18,9 +14,13 @@
       "namespaces": [
         {
           "name": "test-namespace",
-          "pods": ["ghi"]
+          "pods": ["abc", "def"]
         }
       ]
+    },
+    {
+      "cluster": "",
+      "namespaces": []
     }
   ]
 }

@@ -8,11 +8,11 @@
         "alertgroup": "vmagent",
         "alertname": "PersistentQueueIsDroppingData",
         "app_kubernetes_io_type": "tool",
-        "cluster": "d2_test",
+        "cluster": "d1_coreup",
         "container": "vmagent",
         "job": "vmagent-victoriametrics-victoria-metrics-k8s-stack",
         "namespace": "test-namespace",
-        "pod": "ghi",
+        "pod": "mnp",
         "service": "vmagent-victoriametrics-victoria-metrics-k8s-stack",
         "severity": "critical"
       },
