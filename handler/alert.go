@@ -6,13 +6,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"sms-devops-gateway/config"
 	"sms-devops-gateway/forwarder"
 )
 
-// AlertData đại diện cho JSON từ Alertmanager
 type AlertData struct {
 	Receiver string  `json:"receiver"`
 	Alerts   []Alert `json:"alerts"`
@@ -24,58 +24,91 @@ type Alert struct {
 	Annotations map[string]string `json:"annotations"`
 }
 
-// nowLocal trả về thời gian hiện tại theo timezone của container (image OS)
+// nowLocal trả về thời gian hiện tại theo timezone của container
 func nowLocal() time.Time {
-	return time.Now().Local() // dựa vào /etc/localtime trong container
+	return time.Now().Local()
 }
 
-// isWithinTimeRange kiểm tra thời gian hiện tại có nằm trong khoảng TimeRange không
+// isWithinTimeRange kiểm tra nếu now nằm trong time range
 func isWithinTimeRange(tr config.TimeRange) bool {
 	now := nowLocal()
-
 	if tr.Start != nil && now.Before(*tr.Start) {
 		return false
 	}
 	if tr.End != nil && now.After(*tr.End) {
 		return false
 	}
-	return true
+	return tr.Start != nil || tr.End != nil
 }
 
-// shouldIgnore kiểm tra alert có bị ignore hay không và trả về lý do
+// matchWithWildcard hỗ trợ match string với wildcard (*)
+func matchWithWildcard(pattern, value string) bool {
+	if pattern == "*" {
+		return true
+	}
+	return strings.EqualFold(pattern, value)
+}
+
+// shouldIgnore kiểm tra alert có bị ignore dựa vào các cấp độ và wildcard
 func shouldIgnore(cluster, namespace, pod string, ignoreCfg *config.IgnoreConfig) (bool, string) {
+	// 1. Check ClusterGroups
+	for _, cg := range ignoreCfg.ClusterGroups {
+		for _, c := range cg.Clusters {
+			if matchWithWildcard(c, cluster) && isWithinTimeRange(cg.Time) {
+				return true, fmt.Sprintf("ignored by clusterGroup %s (cluster %s)", cg.Name, cluster)
+			}
+		}
+	}
+
+	// 2. Check từng Cluster
 	for _, c := range ignoreCfg.Ignore {
-		// Check cluster name
-		if c.Cluster != "*" && c.Cluster != cluster {
+		if !matchWithWildcard(c.Cluster, cluster) {
 			continue
 		}
 
-		// Nếu cluster còn trong time và namespaces rỗng → ignore toàn cluster
-		if isWithinTimeRange(c.Time) && len(c.Namespaces) == 0 {
-			return true, fmt.Sprintf("ignore all alerts in cluster %s (active time range)", cluster)
+		// Nếu cluster còn trong time và không có namespace rule
+		if isWithinTimeRange(c.Time) && len(c.Namespaces) == 0 && len(c.NamespaceGroups) == 0 {
+			return true, fmt.Sprintf("ignored all alerts in cluster '%s'", cluster)
 		}
 
-		// Check namespace
+		// 3. Check NamespaceGroups trong cluster
+		for _, ng := range c.NamespaceGroups {
+			for _, nsPattern := range ng.Namespaces {
+				if matchWithWildcard(nsPattern, namespace) && isWithinTimeRange(ng.Time) {
+					return true, fmt.Sprintf("ignored by namespaceGroup %s in cluster %s", ng.Name, cluster)
+				}
+			}
+		}
+
+		// 4. Check namespace cụ thể
 		for _, ns := range c.Namespaces {
-			if ns.Name != "*" && ns.Name != namespace {
+			if !matchWithWildcard(ns.Name, namespace) {
 				continue
 			}
 
-			// Nếu namespace còn trong time và pods rỗng → ignore toàn namespace
-			if isWithinTimeRange(ns.Time) && len(ns.Pods) == 0 {
-				return true, fmt.Sprintf("ignore all alerts in namespace %s (cluster %s)", namespace, cluster)
+			// Nếu namespace còn trong time và không có pods
+			if isWithinTimeRange(ns.Time) && len(ns.Pods) == 0 && len(ns.PodGroups) == 0 {
+				return true, fmt.Sprintf("ignored all alerts in namespace '%s' with location '%s'", namespace, cluster)
 			}
 
-			// Check pod
-			for _, p := range ns.Pods {
-				if p.Name == "*" || p.Name == pod {
-					if isWithinTimeRange(p.Time) {
-						return true, fmt.Sprintf("ignore alert for pod %s/%s/%s (active time range)", cluster, namespace, pod)
+			// 5. Check PodGroups trong namespace
+			for _, pg := range ns.PodGroups {
+				for _, podPattern := range pg.Pods {
+					if matchWithWildcard(podPattern, pod) && isWithinTimeRange(pg.Time) {
+						return true, fmt.Sprintf("ignored by podGroup %s in %s/%s", pg.Name, cluster, namespace)
 					}
+				}
+			}
+
+			// 6. Check pod cụ thể
+			for _, p := range ns.Pods {
+				if matchWithWildcard(p.Name, pod) && isWithinTimeRange(p.Time) {
+					return true, fmt.Sprintf("ignored pod '%s' with location '%s/%s'", pod, cluster, namespace)
 				}
 			}
 		}
 	}
+
 	return false, ""
 }
 
@@ -89,7 +122,6 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 		}
 		defer r.Body.Close()
 
-		// Ghi log theo thời gian local của container
 		logEntry := fmt.Sprintf("[%s] Received alert:\n%s\n\n", nowLocal().Format(time.RFC3339), string(body))
 		if _, err := logFile.WriteString(logEntry); err != nil {
 			fmt.Fprintf(os.Stderr, "⚠️ Failed to write to alert log: %v\n", err)
