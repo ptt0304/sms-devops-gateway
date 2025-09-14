@@ -1,0 +1,23 @@
+{
+  "state": "firing",
+  "name": "HostOutOfMemory",
+  "value": "37.415466",
+  "labels": {
+    "alertgroup": "Monitor dc1-omnibus instance",
+    "alertname": "HostOutOfMemory",
+    "instance": "10.68.40.199:9100",
+    "job": "dc1-omnibus-linux",
+    "severity": "critical"
+  },
+  "annotations": {
+    "summary": "Host out of memory (instance 10.68.40.199:9100 job:dc1-omnibus-linux severity:critical)"
+  },
+  "activeAt": "2025-09-12T08:54:00+07:00",
+  "id": "10102372285066437818",
+  "rule_id": "9595291693638119346",
+  "group_id": "14564329467858609185",
+  "expression": "node_memory_MemAvailable_bytes{job=\"dc1-omnibus-linux\"}",
+  "source": "http://10.68.25.11:8880/vmalert/alert?group_id=14564329467858609185",
+  "restored": false,
+  "stabilizing": false
+}

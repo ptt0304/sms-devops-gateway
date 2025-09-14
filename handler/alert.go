@@ -24,6 +24,17 @@ type Alert struct {
 	Annotations map[string]string `json:"annotations"`
 }
 
+// Format mới (VM)
+type VMAlert struct {
+	State       string            `json:"state"`
+	Name        string            `json:"name"`
+	Value       string            `json:"value"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+	ID          string            `json:"id"`
+	RuleID      string            `json:"rule_id"`
+}
+
 // nowLocal trả về thời gian hiện tại theo timezone của container
 func nowLocal() time.Time {
 	return time.Now().Local()
@@ -127,59 +138,94 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 			fmt.Fprintf(os.Stderr, "⚠️ Failed to write to alert log: %v\n", err)
 		}
 
+		// ---- TH1: Format K8S ----
 		var alertData AlertData
-		if err := json.Unmarshal(body, &alertData); err != nil {
-			http.Error(w, "invalid JSON object", http.StatusBadRequest)
-			return
-		}
-
-		if len(alertData.Alerts) == 0 {
-			http.Error(w, "no alerts found", http.StatusBadRequest)
-			return
-		}
-
-		alert := alertData.Alerts[0]
-		status := defaultIfEmpty(alert.Status, "unknown-status")
-		cluster := defaultIfEmpty(alert.Labels["cluster"], "unknown-cluster")
-		namespace := defaultIfEmpty(alert.Labels["namespace"], "unknown-namespace")
-		pod := defaultIfEmpty(alert.Labels["pod"], "unknown-pod")
-		severity := alert.Labels["severity"]
-		summary := alert.Annotations["summary"]
-		if summary == "" {
-			summary = alert.Labels["alertname"]
-		}
-
-		if ignored, reason := shouldIgnore(cluster, namespace, pod, ignoreCfg); ignored {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(fmt.Sprintf("Alert ignored: %s ✅", reason)))
-			fmt.Fprintf(os.Stdout, "ℹ️ %s (%s/%s/%s)\n", reason, cluster, namespace, pod)
-			return
-		}
-
-		if !(status == "resolved" || (status == "firing" && severity == "critical")) {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("Alert ignored by default rules"))
-			return
-		}
-
-		message := fmt.Sprintf("[%s] %s/%s | %s | %s", status, cluster, namespace, pod, summary)
-		targetReceiver := alertData.Receiver
-
-		sent := false
-		for _, receiver := range cfg.Receivers {
-			if receiver.Name == targetReceiver {
-				forwarder.SendToMultipleMobiles(receiver.Mobiles, message)
-				sent = true
-				break
+		if err := json.Unmarshal(body, &alertData); err == nil && len(alertData.Alerts) > 0 {
+			alert := alertData.Alerts[0]
+			status := defaultIfEmpty(alert.Status, "unknown-status")
+			cluster := defaultIfEmpty(alert.Labels["cluster"], "unknown-cluster")
+			namespace := defaultIfEmpty(alert.Labels["namespace"], "unknown-namespace")
+			pod := defaultIfEmpty(alert.Labels["pod"], "unknown-pod")
+			severity := alert.Labels["severity"]
+			summary := alert.Annotations["summary"]
+			if summary == "" {
+				summary = alert.Labels["alertname"]
 			}
+
+			if ignored, reason := shouldIgnore(cluster, namespace, pod, ignoreCfg); ignored {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(fmt.Sprintf("Alert ignored: %s ✅", reason)))
+				fmt.Fprintf(os.Stdout, "ℹ️ %s (%s/%s/%s)\n", reason, cluster, namespace, pod)
+				return
+			}
+
+			if !(status == "resolved" || (status == "firing" && severity == "critical")) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("Alert ignored by default rules"))
+				return
+			}
+
+			message := fmt.Sprintf("[%s] %s/%s | %s | %s", status, cluster, namespace, pod, summary)
+			targetReceiver := alertData.Receiver
+
+			sent := false
+			for _, receiver := range cfg.Receivers {
+				if receiver.Name == targetReceiver {
+					forwarder.SendToMultipleMobiles(receiver.Mobiles, message)
+					sent = true
+					break
+				}
+			}
+
+			if !sent {
+				forwarder.SendToMultipleMobiles(cfg.DefaultReceiver.Mobiles, message)
+			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Alert processed ✅"))
+			return
 		}
 
-		if !sent {
-			forwarder.SendToMultipleMobiles(cfg.DefaultReceiver.Mobiles, message)
+		// ---- TH2: Format VM ----
+		var vmAlert VMAlert
+		if err := json.Unmarshal(body, &vmAlert); err == nil && vmAlert.State != "" {
+			receiver := "alert-devops"
+			summary := vmAlert.Annotations["summary"]
+			if summary == "" {
+				summary = vmAlert.Name
+			}
+
+    severity := vmAlert.Labels["severity"]
+    state := vmAlert.State
+
+    // ⚠️ Chỉ gửi nếu firing + critical
+	if !(state == "resolved" || (state == "firing" && severity == "critical")) {
+        w.WriteHeader(http.StatusOK)
+        w.Write([]byte("VM Alert ignored by default rules"))
+        return
+    }
+
+    message := fmt.Sprintf("[%s] %s", state, summary)
+
+			// Gửi đến đúng receiver
+			sent := false
+			for _, rcv := range cfg.Receivers {
+				if rcv.Name == receiver {
+					forwarder.SendToMultipleMobiles(rcv.Mobiles, message)
+					sent = true
+					break
+				}
+			}
+			if !sent {
+				forwarder.SendToMultipleMobiles(cfg.DefaultReceiver.Mobiles, message)
+			}
+
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("VM Alert processed ✅"))
+			return
 		}
 
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Alert processed ✅"))
+		http.Error(w, "invalid alert format", http.StatusBadRequest)
 	}
 }
 
