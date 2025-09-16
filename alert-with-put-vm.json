@@ -1,23 +1,32 @@
 {
-  "state": "firing",
-  "name": "HostOutOfMemory",
-  "value": "37.415466",
-  "labels": {
-    "alertgroup": "Monitor dc1-omnibus instance",
-    "alertname": "HostOutOfMemory",
-    "instance": "10.68.40.199:9100",
-    "job": "dc1-omnibus-linux",
+  "receiver": "alert-d1-lgc-devops",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertgroup": "Monitor Kafka Core",
+        "alertname": "consumer_group_message_lag",
+        "consumergroup": "DATALAKE_0",
+        "job": "dc1-kafka-core",
+        "severity": "critical",
+        "topic": "FUND_DATALAKE"
+      },
+      "annotations": {
+        "description": "Vmagent dropped 551Mi from persistent queue on instance 10.90.1.142:8429 for the last 10m.",
+        "summary": "Kafka Group Consumer DATALAKE_0: lag 73066"
+      },
+      "startsAt": "2025-07-07T09:13:30+07:00",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://alertmanager-vmks-acpui-victoria-metrics-k8s-stack-5666f59944-xsm57:8080/#/alert?alertId=14539619035117554733",
+      "fingerprint": "012feca9fc83bb6"
+    }
+  ],
+  "groupLabels": {
+    "alertname": "PersistentQueueIsDroppingData",
+    "cluster": "d1_coreup",
+    "job": "vmagent-victoriametrics-victoria-metrics-k8s-stack",
+    "namespace": "infra-monitoring",
     "severity": "critical"
-  },
-  "annotations": {
-    "summary": "Host out of memory (instance 10.68.40.199:9100 job:dc1-omnibus-linux severity:critical)"
-  },
-  "activeAt": "2025-09-12T08:54:00+07:00",
-  "id": "10102372285066437818",
-  "rule_id": "9595291693638119346",
-  "group_id": "14564329467858609185",
-  "expression": "node_memory_MemAvailable_bytes{job=\"dc1-omnibus-linux\"}",
-  "source": "http://10.68.25.11:8880/vmalert/alert?group_id=14564329467858609185",
-  "restored": false,
-  "stabilizing": false
+  }
 }
