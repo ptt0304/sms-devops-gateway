@@ -1,22 +1,19 @@
 {
+  "receiver": "alert-d1-lgc-devops",
   "status": "resolved",
   "alerts": [
     {
       "status": "resolved",
       "labels": {
-        "alertgroup": "vmagent",
-        "alertname": "PersistentQueueIsDroppingData",
-        "app_kubernetes_io_type": "tool",
-        "container": "vmagent",
-        "job": "vmagent-victoriametrics-victoria-metrics-k8s-stack",
-        "service": "vmagent-victoriametrics-victoria-metrics-k8s-stack",
-        "severity": "critical"
+        "alertgroup": "Monitor Kafka Core",
+        "alertname": "alertname-instance",
+        "job": "dc1-kafka-core",
+        "severity": "critical",
+        "instance": "10.9.8.7"
       },
       "annotations": {
-        "dashboard.grafana.domain.co/io/sync-options": "ServerSideApply=true",
-        "dashboard": "http://grafana.domain.co/d/G7Z9GzM2k?viewPanel=49&var-instance=10.90.1.142:8429",
         "description": "Vmagent dropped 551Mi from persistent queue on instance 10.90.1.142:8429 for the last 10m.",
-        "summary": "This is k8s alert"
+        "summary": "this is instance alert"
       },
       "startsAt": "2025-07-07T09:13:30+07:00",
       "endsAt": "0001-01-01T00:00:00Z",

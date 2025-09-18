@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -16,12 +16,6 @@ func main() {
 		log.Fatalf("❌ Failed to load config: %v", err)
 	}
 
-	// ✅ Load ignore-alert.json
-	ignoreCfg, err := config.LoadIgnoreConfig("ignore-alert.json")
-	if err != nil {
-		log.Fatalf("❌ Failed to load ignore config: %v", err)
-	}
-
 	/////////////////////////////////////////////////////////////////
 	// Mở file alerts.log để ghi liên tục
 	logFilePath := "/log/alerts.log"
@@ -31,14 +25,18 @@ func main() {
 	}
 	defer logFile.Close()
 
+	// Tạo writer vừa ghi file vừa ghi console
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
+	log.SetOutput(multiWriter)
+
 	// Ghi log khởi động
-	logFile.WriteString("=== SMS DevOps Gateway started ===\n")
+	log.Println("=== SMS DevOps Gateway started ===")
+	log.Println("🚀 SMS DevOps Gateway running on :8080")
 
 	/////////////////////////////////////////////////////////////////
-	// ✅ Truyền cả cfg và ignoreCfg vào handler
-	http.HandleFunc("/sms", handler.HandleAlert(cfg, ignoreCfg, logFile))
+	// ✅ Truyền cfg vào handler
+	http.HandleFunc("/sms", handler.HandleAlert(cfg, logFile))
 
-	fmt.Println("🚀 SMS DevOps Gateway running on :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatalf("❌ Server failed: %v", err)
 	}

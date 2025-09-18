@@ -27,42 +27,6 @@ data:
         "mobile": "sdt"
       }
     }
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: sms-devops-gateway-ignore-alert-configmap
-  namespace: sms-devops-gateway
-data:
-  ignore-alert.json: |
-    {
-      "ignore": [
-        {
-          "cluster": "d1_coreup",
-          "namespaces": [
-            {
-              "name": "infra-monitoring",
-              "pods": ["abc", "def"]
-            },
-            {
-              "name": "dev-tools",
-              "pods": []
-            }
-          ]
-        },
-        {
-          "cluster": "d2_test",
-          "namespaces": [
-            {
-              "name": "test-namespace",
-              "pods": ["ghi"]
-            }
-          ]
-        }
-      ]
-    }
-
 ---
 apiVersion: v1
 kind: Secret
@@ -98,17 +62,10 @@ spec:
             - name: config-volume
               mountPath: /config.json
               subPath: config.json
-            - name: ignore-alert-volume
-              mountPath: /ignore-alert.json
-              subPath: ignore-alert.json
-
       volumes:
         - name: config-volume
           configMap:
             name: sms-devops-gateway-configmap
-        - name: ignore-alert-volume
-          configMap:
-            name: sms-devops-gateway-ignore-alert
       imagePullSecrets:
         - name: sms-devops-gateway-secret
 

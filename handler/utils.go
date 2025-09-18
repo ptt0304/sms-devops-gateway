@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"sms-devops-gateway/config"
 )
 
 // nowLocal trả về thời gian hiện tại theo timezone của container
@@ -25,12 +24,6 @@ func matchWithWildcard(pattern, value string) bool {
 		return true
 	}
 	return strings.EqualFold(pattern, value)
-}
-
-// shouldIgnore kiểm tra alert có bị ignore không
-func shouldIgnore(cluster, namespace, pod string, ignoreCfg *config.IgnoreConfig) (bool, string) {
-	// ...
-	return false, ""
 }
 
 func logToFile(logFile *os.File, msg string) {

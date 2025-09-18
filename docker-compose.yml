@@ -7,5 +7,4 @@ services:
       - "8080:8080"
     volumes:
       - ./config.json:/config.json
-      - ./ignore-alert.json:/ignore-alert.json
     restart: unless-stopped

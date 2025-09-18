@@ -11,6 +11,10 @@
         {
             "name": "alert-infra",
             "mobile": "sdt-infra-1, sdt-infra-2"
+        },
+        {
+            "name": "alert-d1-lgc-devops",
+            "mobile": "sdt-lgc-1, sdt-lgc-2"
         }
     ],
     "default_receiver": {

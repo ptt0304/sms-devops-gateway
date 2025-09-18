@@ -6,10 +6,11 @@
     "alertgroup": "Monitor dc1-omnibus instance",
     "alertname": "HostOutOfMemory",
     "instance": "10.68.40.199:9100",
-    "job": "dc1-omnibus-linux",
-    "severity": "critical"
+    "severity": "critical",
+    "job": "dc1-omnibus-linux"
   },
   "annotations": {
+    "description": "abc",
     "summary": "Host out of memory (instance 10.68.40.199:9100 job:dc1-omnibus-linux severity:critical)"
   },
   "activeAt": "2025-09-12T08:54:00+07:00",
