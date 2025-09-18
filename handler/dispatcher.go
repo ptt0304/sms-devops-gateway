@@ -11,7 +11,7 @@ import (
 )
 
 // Dispatcher
-func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os.File) http.HandlerFunc {
+func HandleAlert(cfg *config.Config, logFile *os.File) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -29,7 +29,7 @@ func HandleAlert(cfg *config.Config, ignoreCfg *config.IgnoreConfig, logFile *os
 			if alertData.Alerts[0].Status == "" || alertData.Alerts[0].Labels["severity"] == "" {
 				// thiếu status/severity, sẽ rơi xuống http.Error ở dưới
 			} else {
-				processK8sAlert(alertData, cfg, ignoreCfg, w, logFile)
+				processAlert(alertData, cfg, w, logFile)
 				return
 			}
 		}

@@ -1,20 +1,19 @@
 {
   "receiver": "alert-d1-lgc-devops",
-  "status": "firing",
+  "status": "resolved",
   "alerts": [
     {
-      "status": "firing",
+      "status": "resolved",
       "labels": {
         "alertgroup": "Monitor Kafka Core",
-        "alertname": "consumer_group_message_lag",
-        "consumergroup": "DATALAKE_0",
+        "alertname": "alertname-instance",
         "job": "dc1-kafka-core",
         "severity": "critical",
-        "topic": "FUND_DATALAKE"
+        "instance": "10.9.8.7"
       },
       "annotations": {
         "description": "Vmagent dropped 551Mi from persistent queue on instance 10.90.1.142:8429 for the last 10m.",
-        "summary": "Kafka Group Consumer DATALAKE_0: lag 73066"
+        "summary": "this is instance alert"
       },
       "startsAt": "2025-07-07T09:13:30+07:00",
       "endsAt": "0001-01-01T00:00:00Z",
