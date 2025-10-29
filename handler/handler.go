@@ -60,40 +60,36 @@ func processAlert(alertData AlertData, cfg *config.Config, w http.ResponseWriter
 
 	// alert-d1-lgc-devops alert
 	if targetReceiver == "alert-d1-lgc-devops" {
+			// Instance alert
 		if instance != "unknown-instance" {
 			message = fmt.Sprintf("[%s] AlertName: %s | Instance: %s | Sum: %s",
 				status, alertname, instance, summary)
 
+			// Message queue alert
 		} else if topic != "unknown-topic" || consumergroup != "unknown-consumergroup" {
 			message = fmt.Sprintf("[%s] %s | ConsumerGroup: %s | Job: %s | Topic: %s | Sum: %s",
 				status, alertname, consumergroup, job, topic, summary)
 		} else {
-			// Default alert
-			message = fmt.Sprintf("[%s] AlertGroup: %s | AlertName: %s | Sum: %s",
+			// Missing fields alert
+			message = fmt.Sprintf("[%s] Legacy alert type but mising fields | AlertGroup: %s | AlertName: %s | Sum: %s",
 				status, alertgroup, alertname, summary)
 		}
 	
-	} else {
-		// Với các receiver khác
-		if instance != "unknown-instance" {
-			// Instance alert không đầy đủ các field
-			message = fmt.Sprintf("[%s] AlertName: %s | Instance: %s | Sum: %s",
-				status, alertname, instance, summary)
-
-		} else if topic != "unknown-topic" || consumergroup != "unknown-consumergroup" {
-			// message-queue alert không đầy đủ các field
-			message = fmt.Sprintf("[%s] %s | ConsumerGroup: %s | Job: %s | Topic: %s | Sum: %s",
-				status, alertname, consumergroup, job, topic, summary)
-
-		} else if cluster != "unknown-cluster" || namespace != "unknown-namespace" || pod != "unknown-pod"{
-			// K8s alert không đầy đủ các field
+	} else if targetReceiver == "alert-devops" {
+		// alert-devops receiver
+		if cluster != "unknown-cluster" || namespace != "unknown-namespace" || pod != "unknown-pod"{
+			// Missing fields alert
 			message = fmt.Sprintf("[%s] %s/%s | %s | %s",
 				status, cluster, namespace, pod, summary)
 		} else {
-			// Default alert
-			message = fmt.Sprintf("[%s] AlertGroup: %s | AlertName: %s | Sum: %s",
+			// Missing fields alert
+			message = fmt.Sprintf("[%s] K8S alert tyep but missing fields | AlertGroup: %s | AlertName: %s | Sum: %s",
 				status, alertgroup, alertname, summary)
 		}
+	} else {
+		//Missing receiver, sent to default_receiver
+		message = fmt.Sprintf("[%s] AlertGroup: %s | AlertName: %s | Sum: %s",
+			status, alertgroup, alertname, summary)
 	}
 
 
