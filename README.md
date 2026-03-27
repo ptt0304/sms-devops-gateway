@@ -671,8 +671,7 @@ curl -X POST http://localhost:8080/sms \
 ## 📞 Support
 
 - **Issues:** Tạo issue trên repository
-- **Email:** devops-team@company.com
-- **Slack:** #devops-alerts channel
+- **Email:** phamtung4030@gmail.com
 
 ## 📄 License
 
